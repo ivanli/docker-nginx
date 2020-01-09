@@ -10,7 +10,7 @@ function environment() {
   if [[ -z ${NGINX_DOCROOT} ]]; then NGINX_DOCROOT=/usr/share/nginx/html && export NGINX_DOCROOT && mkdir -p "${NGINX_DOCROOT}"; fi
   if [[ -z ${PHP_FPM_UPSTREAM} ]]; then PHP_FPM_UPSTREAM="localhost:9000;" && export PHP_FPM_UPSTREAM;  fi
   if [[ -z ${NGINX_PROXY_UPSTREAM} ]]; then NGINX_PROXY_UPSTREAM="localhost:8080;" && export NGINX_PROXY_UPSTREAM; fi
-  if [[ -z ${REDIS_UPSTREAM} ]]; then REDIS_UPSTREAM="127.0.0.1:6379;" && export REDIS_UPSTREAM; fi
+  if [[ -z ${NGINX_REDIS_URL} ]]; then NGINX_REDIS_URL="127.0.0.1:6379;" && export NGINX_REDIS_URL; fi
 
 }
 
@@ -64,7 +64,7 @@ function config() {
     # Replace Upstream servers
     find "${CONF_PREFIX}" -maxdepth 5 -type f -exec sed -i -e 's|{{PHP_FPM_UPSTREAM}}|'"${PHP_FPM_UPSTREAM}"'|g' {} \;
     find "${CONF_PREFIX}" -maxdepth 5 -type f -exec sed -i -e 's|{{NGINX_PROXY_UPSTREAM}}|'"${NGINX_PROXY_UPSTREAM}"'|g' {} \;
-    find "${CONF_PREFIX}" -maxdepth 5 -type f -exec sed -i -e 's|{{REDIS_UPSTREAM}}|'"${REDIS_UPSTREAM}"'|g' {} \;
+    find "${CONF_PREFIX}" -maxdepth 5 -type f -exec sed -i -e 's|{{NGINX_REDIS_URL}}|'"${NGINX_REDIS_URL}"'|g' {} \;
 
     # Replace SPA
     find "${CONF_PREFIX}" -maxdepth 5 -type f -exec sed -i -e 's|{{NGINX_SPA_PRERENDER}}|'"${NGINX_SPA_PRERENDER}"'|g' {} \;

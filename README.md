@@ -96,7 +96,7 @@ The following are the core variables for the `ENV` config in `/conf`
 * `NGINX_PROXY_UPSTREAM` sets the upstream server(s) for the reverse proxy to connect with. Since the proxy is local to
 the container you should use something like `localhost.com:8080`. If this is NOT set, it will default to
 `localhost:8080`
-* `REDIS_UPSTREAM` sets the upstream Redis cache server(s) to connect with. If you are using compose you might
+* `NGINX_REDIS_URL` sets the upstream Redis cache server(s) to connect with. If you are using compose you might
 reference the `redis` container `server redis01:6379;server redis02:6378;`. You might also set it by IP `server
 1.2.3.4:6379; server 4.3.2.1:6379;`. If this is NOT set, it will default to `server localhost:6379;`.
 
