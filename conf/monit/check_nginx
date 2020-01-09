@@ -12,6 +12,10 @@ check program wwwdata-permissions with path /usr/bin/env bash -c "check_wwwdata 
       every 3 cycles
       if status != 0 then exec "/usr/bin/env bash -c 'find {{NGINX_DOCROOT}} -type d -exec chmod 755 {} \; && find {{NGINX_DOCROOT}} -type f -exec chmod 644 {} \;'"
 
+check program wwwdata-owner with path /usr/bin/env bash -c "check_wwwdata owner"
+      every 3 cycles
+      if status != 0 then exec "/usr/bin/env bash -c 'find {{NGINX_DOCROOT}} -type d -exec chown www-data:www-data {} \; && find {{NGINX_DOCROOT}} -type f -exec chown www-data:www-data {} \;'"
+
 check directory cache-permissions with path {{CACHE_PREFIX}}
       every 20 cycles
       if failed permission 755 then exec "/usr/bin/env bash -c 'find {{CACHE_PREFIX}} -type d -exec chmod 755 {} \;'"
