@@ -8,7 +8,7 @@ function environment() {
 
 # Set the ROOT directory for apps and content
   if [[ -z ${NGINX_DOCROOT} ]]; then NGINX_DOCROOT=/usr/share/nginx/html && export NGINX_DOCROOT && mkdir -p "${NGINX_DOCROOT}"; fi
-  if [[ -z ${PHP_FPM_UPSTREAM} ]]; then PHP_FPM_UPSTREAM="localhost:9000;" && export PHP_FPM_UPSTREAM;  fi
+  if [[ -z ${NGINX_PHP_FPM_URL} ]]; then NGINX_PHP_FPM_URL="localhost:9000;" && export NGINX_PHP_FPM_URL;  fi
   if [[ -z ${NGINX_PROXY_UPSTREAM} ]]; then NGINX_PROXY_UPSTREAM="localhost:8080;" && export NGINX_PROXY_UPSTREAM; fi
   if [[ -z ${NGINX_REDIS_URL} ]]; then NGINX_REDIS_URL="127.0.0.1:6379;" && export NGINX_REDIS_URL; fi
 
@@ -62,7 +62,7 @@ function config() {
     find "${CONF_PREFIX}" -maxdepth 5 -type f -exec sed -i -e 's|{{PAGESPEED_BEACON}}|'"${PAGESPEED_BEACON}"'|g' {} \;
 
     # Replace Upstream servers
-    find "${CONF_PREFIX}" -maxdepth 5 -type f -exec sed -i -e 's|{{PHP_FPM_UPSTREAM}}|'"${PHP_FPM_UPSTREAM}"'|g' {} \;
+    find "${CONF_PREFIX}" -maxdepth 5 -type f -exec sed -i -e 's|{{NGINX_PHP_FPM_URL}}|'"${NGINX_PHP_FPM_URL}"'|g' {} \;
     find "${CONF_PREFIX}" -maxdepth 5 -type f -exec sed -i -e 's|{{NGINX_PROXY_UPSTREAM}}|'"${NGINX_PROXY_UPSTREAM}"'|g' {} \;
     find "${CONF_PREFIX}" -maxdepth 5 -type f -exec sed -i -e 's|{{NGINX_REDIS_URL}}|'"${NGINX_REDIS_URL}"'|g' {} \;
 

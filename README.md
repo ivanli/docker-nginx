@@ -103,7 +103,7 @@ reference the `redis` container `server redis01:6379;server redis02:6378;`. You 
 
 If you are using PHP you will want to set the endpoint for `PHP-FPM`:
 
-* `PHP_FPM_UPSTREAM` sets the upstream server(s) to connect with. If you are using compose you might reference the
+* `NGINX_PHP_FPM_URL` sets the upstream server(s) to connect with. If you are using compose you might reference the
 `php-fpm01` container `server php-fpm01:9000;server php-fpm01:9001;`. You might also set it by IP `server
 1.2.3.4:9000; server 4.3.2.1:9001;`. If this is NOT set, it will default to `server localhost:9000;`
 
