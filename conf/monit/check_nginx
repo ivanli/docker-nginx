@@ -1,9 +1,12 @@
 check process nginx with pidfile "/var/run/nginx.pid"
       if not exist for 5 cycles then restart
-      start program = "/usr/bin/env bash -c '/usr/sbin/nginx -g daemon off'" with timeout 60 seconds
-      stop program = "/usr/bin/env bash -c '/usr/sbin/nginx -s stop'"
+
+      # Using quotes around nginx arguments is needed for later versions of nginx.
+      start program = "/usr/bin/env bash -c /usr/sbin/nginx -g 'daemon off;'" with timeout 60 seconds
+      stop program = "/usr/bin/env bash -c /usr/sbin/nginx -s stop"
+      
       every 3 cycles
-      if cpu > 80% for 10 cycles then exec "/usr/bin/env bash -c '/usr/sbin/nginx -s stop'"
+      if cpu > 80% for 10 cycles then exec "/usr/bin/env bash -c /usr/sbin/nginx -s stop"
 
 check program wwwdata-permissions with path /usr/bin/env bash -c "check_wwwdata permission"
       every 3 cycles
