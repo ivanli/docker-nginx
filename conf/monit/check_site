@@ -1,0 +1,16 @@
+check file letsencrypt_certificate with path /etc/letsencrypt/live/{{SERVER_NAME}}/fullchain.pem
+      if changed checksum then exec "/usr/bin/env bash -c '/usr/sbin/nginx -s reload'"
+
+check host {{SERVER_NAME}} with address {{SERVER_NAME}}
+      if failed host {{SERVER_NAME}} port 80 protocol http
+        and request "/health-check"
+        with timeout 25 seconds
+        for 3 times within 4 cycles
+        then exec "/usr/bin/env bash -c '/usr/sbin/nginx -s reload'"
+      if failed host {{SERVER_NAME}} port 443 protocol https
+        request "/health-check"
+        status = 200
+        content = "healthy"
+        with timeout 25 seconds
+        for 3 times within 4 cycles
+      then exec "/usr/bin/env bash -c '/usr/sbin/nginx -s reload'"
