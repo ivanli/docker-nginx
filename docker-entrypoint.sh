@@ -47,12 +47,11 @@ function monit() {
 function config() {
 
 # Copy the configs to the main nginx and monit conf directories
-if [[ ! -z ${NGINX_CONFIG} ]]; then
-   if [[ ! -d /conf/${NGINX_CONFIG} ]]; then
+  if [[ ! -d /conf ]]; then
       echo "INFO: The NGINX_CONF setting has not been set. Using the default configs..."
     else
-      rsync -av --ignore-missing-args /conf/${NGINX_CONFIG}/nginx/* ${CONF_PREFIX}/
-      rsync -av --ignore-missing-args /conf/${NGINX_CONFIG}/monit/* /etc/monit.d/
+    rsync -av --ignore-missing-args /conf/nginx/* ${CONF_PREFIX}/
+    rsync -av --ignore-missing-args /conf/monit/* /etc/monit.d/
       PAGESPEED_BEACON=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1)
 
       # Set the ENV variables in all configs
@@ -214,8 +213,9 @@ function run() {
    config
    if [[ ${NGINX_BAD_BOTS} = "true" ]]; then bots; else echo "BOTS was not set"; fi
    if [[ ${NGINX_DEV_INSTALL} = "true" ]]; then dev; fi
-   #permissions
-   if [[ ${NGINX_CONFIG} != "basic" ]]; then monit; fi
+
+   permissions
+   monit
 }
 
 run
