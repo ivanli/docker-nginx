@@ -1,7 +1,8 @@
 FROM alpine:3.10
 LABEL maintainer="ivan@iky.li"
 
-ARG NGINX_VERSION
+ARG NGINX_VERSION=1.17.7
+
 ENV VAR_PREFIX=/var/run \
     LOG_PREFIX=/var/log/nginx \
     TEMP_PREFIX=/tmp \
@@ -165,8 +166,8 @@ RUN set -x  \
   && mkdir -p /usr/local/bin/ \
   && mkdir -p ${CACHE_PREFIX} \
   && mkdir -p ${CERTS_PREFIX} \
-  && cd /etc/pki/tls/ \
-  && nice -n +5 openssl dhparam -out /etc/pki/tls/dhparam.pem.default 2048 \
+  && cd ${CERTS_PREFIX} \
+  && openssl dhparam 2048 -out ${CERTS_PREFIX}/dhparam.pem.default \
   && apk add --no-cache --virtual .gettext gettext \
   && mv /usr/bin/envsubst /tmp/ \
   \
