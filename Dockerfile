@@ -1,5 +1,5 @@
 FROM alpine:3.10
-MAINTAINER Thomas Spicer (thomas@openbridge.com)
+LABEL maintainer="ivan@iky.li"
 
 ARG NGINX_VERSION
 ENV VAR_PREFIX=/var/run \
