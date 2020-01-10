@@ -1,16 +1,23 @@
 #!/usr/bin/env bash
 
+set -xu
+
 #---------------------------------------------------------------------
 # configure environment
 #---------------------------------------------------------------------
 
 function environment() {
 
-# Set the ROOT directory for apps and content
+
+  # Set the ROOT directory for apps and content
   if [[ -z ${NGINX_DOCROOT} ]]; then NGINX_DOCROOT=/usr/share/nginx/html && export NGINX_DOCROOT && mkdir -p "${NGINX_DOCROOT}"; fi
-  if [[ -z ${NGINX_PHP_FPM_URL} ]]; then NGINX_PHP_FPM_URL="localhost:9000;" && export NGINX_PHP_FPM_URL;  fi
   if [[ -z ${NGINX_PROXY_UPSTREAM} ]]; then NGINX_PROXY_UPSTREAM="localhost:8080;" && export NGINX_PROXY_UPSTREAM; fi
-  if [[ -z ${NGINX_REDIS_URL} ]]; then NGINX_REDIS_URL="127.0.0.1:6379;" && export NGINX_REDIS_URL; fi
+
+  source /etc/docker/environment/default.env
+
+  if [[ -z ${DOMAINS} ]]; then echo "Required variable DOMAINS not set" && exit 1; fi
+  if [[ -z ${NGINX_PHP_FPM_URL} ]]; then echo "Required variable NGINX_PHP_FPM_URL not set" && exit 1; fi
+  if [[ -z ${NGINX_REDIS_URL} ]]; then echo "Required variable NGINX_REDIS_URL not set" && exit 1; fi
 
 }
 
@@ -19,25 +26,23 @@ function environment() {
 #---------------------------------------------------------------------
 
 function monit() {
-
-	{
+  {
     echo 'set daemon 10'
-		echo '    with START DELAY 15'
+    echo '    with START DELAY 15'
     echo 'set pidfile /run/monit.pid'
     echo 'set statefile /run/monit.state'
     echo 'set httpd port 2849 and'
     echo '    use address localhost'
     echo '    allow localhost'
-    echo 'set logfile syslog'
+    echo 'set log syslog'
     echo 'set eventqueue'
-    echo '    basedir /var/run'
+    echo '    basedir /var/monit'
     echo '    slots 100'
     echo 'include /etc/monit.d/*'
-	} | tee /etc/monitrc
+  } | tee /etc/monitrc
 
-	chmod 700 /etc/monitrc
-	RUN="monit -c /etc/monitrc" && /usr/bin/env bash -c "${RUN}"
-
+  chmod 700 /etc/monitrc
+  RUN="monit -c /etc/monitrc" && /usr/bin/env bash -c "${RUN}"
 }
 
 #---------------------------------------------------------------------
@@ -47,45 +52,56 @@ function monit() {
 function config() {
 
   # Copy the configs to the main nginx and monit conf directories
-  if [[ ! -d /conf ]]; then
-    echo "INFO: The NGINX_CONF setting has not been set. Using the default configs..."
-  else
-    rsync -av --ignore-missing-args /conf/nginx/* ${CONF_PREFIX}/
-    rsync -av --ignore-missing-args /conf/monit/* /etc/monit.d/
-    PAGESPEED_BEACON=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1)
+  echo "### Syncing configurations"
+  rsync -av --ignore-missing-args /conf/nginx/* ${CONF_PREFIX}/
+  rsync -av --ignore-missing-args /conf/monit/* /etc/monit.d/
 
-    # Set the ENV variables in all configs
-    find "${CONF_PREFIX}" -maxdepth 5 -type f -exec sed -i -e 's|{{NGINX_DOCROOT}}|'"${NGINX_DOCROOT}"'|g' {} \;
-    find "${CONF_PREFIX}" -maxdepth 5 -type f -exec sed -i -e 's|{{CACHE_PREFIX}}|'"${CACHE_PREFIX}"'|g' {} \;
-    find "${CONF_PREFIX}" -maxdepth 5 -type f -exec sed -i -e 's|{{NGINX_SERVER_NAME}}|'"${NGINX_SERVER_NAME}"'|g' {} \;
-    find "${CONF_PREFIX}" -maxdepth 5 -type f -exec sed -i -e 's|{{LOG_PREFIX}}|'"${LOG_PREFIX}"'|g' {} \;
-    find "${CONF_PREFIX}" -maxdepth 5 -type f -exec sed -i -e 's|{{PAGESPEED_BEACON}}|'"${PAGESPEED_BEACON}"'|g' {} \;
+  echo "### Creating assets..."
 
-    # Replace Upstream servers
-    find "${CONF_PREFIX}" -maxdepth 5 -type f -exec sed -i -e 's|{{NGINX_PHP_FPM_URL}}|'"${NGINX_PHP_FPM_URL}"'|g' {} \;
-    find "${CONF_PREFIX}" -maxdepth 5 -type f -exec sed -i -e 's|{{NGINX_PROXY_UPSTREAM}}|'"${NGINX_PROXY_UPSTREAM}"'|g' {} \;
-    find "${CONF_PREFIX}" -maxdepth 5 -type f -exec sed -i -e 's|{{NGINX_REDIS_URL}}|'"${NGINX_REDIS_URL}"'|g' {} \;
+  local IFS=";"
+  for server_name in ${DOMAINS}; do
+    if [[ ! -d ${NGINX_CERTROOT}/live/${server_name} ]] || [[ ! -d ${NGINX_CERTROOT}/live/www.${server_name} ]]; then
+      echo "###   Certificates not found for ${server_name}, skipping..."
+      continue
+    fi
 
-    # Replace monit variables
-    find "/etc/monit.d" -maxdepth 3 -type f -exec sed -i -e 's|{{NGINX_DOCROOT}}|'"${NGINX_DOCROOT}"'|g' {} \;
-    find "/etc/monit.d" -maxdepth 3 -type f -exec sed -i -e 's|{{CACHE_PREFIX}}|'"${CACHE_PREFIX}"'|g' {} \;
-    find "/etc/monit.d" -maxdepth 5 -type f -exec sed -i -e 's|{{NGINX_SERVER_NAME}}|'"${NGINX_SERVER_NAME}"'|g' {} \;
-  fi
+    # Initialise directory if it doesn't exist, install default server files
+    if [[ ! -d ${NGINX_DOCROOT}/${server_name} ]]; then
+      echo "###   DOCROOT for ${server_name} doesn't exist, creating..."
+      mkdir -p ${NGINX_DOCROOT}/${server_name}
+      mkdir -p ${NGINX_DOCROOT}/testing/
+      mkdir -p ${NGINX_DOCROOT}/error/
 
-}
+      rsync -av --ignore-missing-args /tmp/test/* ${NGINX_DOCROOT}/testing/
+      rsync -av --ignore-missing-args /tmp/error/* ${NGINX_DOCROOT}/error/
+    fi
 
-#---------------------------------------------------------------------
-# set pernissions for www-data
-#---------------------------------------------------------------------
+    # Create a new vhost file if it doesn't exist.
+    if [[ ! -f ${CONF_PREFIX}/sites-available/${server_name}.vhost ]]; then
+      echo "###   Creating .vhost for ${server_name}..."
+      cp ${CONF_PREFIX}/sites-available/site-https.vhost.template ${CONF_PREFIX}/sites-available/${server_name}.vhost
+      sed -i -e 's|{{SERVER_NAME}}|'"${server_name}"'|g' ${CONF_PREFIX}/sites-available/${server_name}.vhost
+    fi
+  done
 
-function permissions() {
+  rm ${CONF_PREFIX}/sites-available/site-https.vhost.template
 
-  find ${NGINX_DOCROOT} ! -user www-data -exec /usr/bin/env bash -c 'i="$1"; chown www-data:www-data "$i"' _ {} \;
-  find ${NGINX_DOCROOT} ! -perm 755 -type d -exec /usr/bin/env bash -c 'i="$1"; chmod 755  "$i"' _ {} \;
-  find ${NGINX_DOCROOT} ! -perm 644 -type f -exec /usr/bin/env bash -c 'i="$1"; chmod 644 "$i"' _ {} \;
-  find ${CACHE_PREFIX} ! -perm 755 -type d -exec /usr/bin/env bash -c 'i="$1"; chmod 755  "$i"' _ {} \;
-  find ${CACHE_PREFIX} ! -perm 644 -type f -exec /usr/bin/env bash -c 'i="$1"; chmod 644 "$i"' _ {} \;
+  # Replace all variables
+  # Set the ENV variables in all configs
+  find "${CONF_PREFIX}" -maxdepth 5 -type f -exec sed -i -e 's|{{NGINX_DOCROOT}}|'"${NGINX_DOCROOT}"'|g' {} \;
+  find "${CONF_PREFIX}" -maxdepth 5 -type f -exec sed -i -e 's|{{NGINX_CERTROOT}}|'"${NGINX_CERTROOT}"'|g' {} \;
+  find "${CONF_PREFIX}" -maxdepth 5 -type f -exec sed -i -e 's|{{CACHE_PREFIX}}|'"${CACHE_PREFIX}"'|g' {} \;
+  find "${CONF_PREFIX}" -maxdepth 5 -type f -exec sed -i -e 's|{{LOG_PREFIX}}|'"${LOG_PREFIX}"'|g' {} \;
 
+  # Replace Upstream servers
+  find "${CONF_PREFIX}" -maxdepth 5 -type f -exec sed -i -e 's|{{NGINX_PROXY_UPSTREAM}}|'"${NGINX_PROXY_UPSTREAM}"'|g' {} \;
+  find "${CONF_PREFIX}" -maxdepth 5 -type f -exec sed -i -e 's|{{NGINX_PHP_FPM_URL}}|'"${NGINX_PHP_FPM_URL}"'|g' {} \;
+  find "${CONF_PREFIX}" -maxdepth 5 -type f -exec sed -i -e 's|{{NGINX_REDIS_URL}}|'"${NGINX_REDIS_URL}"'|g' {} \;
+  find "${CONF_PREFIX}" -maxdepth 5 -type f -exec sed -i -e 's|{{NGINX_CERTBOT_URL}}|'"${NGINX_CERTBOT_URL}"'|g' {} \;
+
+  # Replace monit variables
+  find "/etc/monit.d" -maxdepth 3 -type f -exec sed -i -e 's|{{NGINX_DOCROOT}}|'"${NGINX_DOCROOT}"'|g' {} \;
+  find "/etc/monit.d" -maxdepth 3 -type f -exec sed -i -e 's|{{CACHE_PREFIX}}|'"${CACHE_PREFIX}"'|g' {} \;
 }
 
 #---------------------------------------------------------------------
@@ -93,49 +109,46 @@ function permissions() {
 #---------------------------------------------------------------------
 
 function dev() {
-
-  # Typically these will be mounted via volume, but in case someone
-  # needs a dev context this will set the certs so the server will
-  # have the basics it needs to run
-   if [[ ! -f /etc/letsencrypt/live/${NGINX_SERVER_NAME}/privkey.pem ]] || [[ ! -f /etc/letsencrypt/live/${NGINX_SERVER_NAME}/fullchain.pem ]]; then
-     echo "OK: Installing development SSL certificates..."
-     mkdir -p /etc/letsencrypt/live/${NGINX_SERVER_NAME}
-     /usr/bin/env bash -c "openssl req -new -newkey rsa:4096 -days 365 -nodes -x509 -subj /C=US/ST=MA/L=Boston/O=ACMECORP/CN=${NGINX_SERVER_NAME} -keyout /etc/letsencrypt/live/${NGINX_SERVER_NAME}/privkey.pem -out /etc/letsencrypt/live/${NGINX_SERVER_NAME}/fullchain.pem"
-     cp /etc/letsencrypt/live/${NGINX_SERVER_NAME}/fullchain.pem  /etc/letsencrypt/live/${NGINX_SERVER_NAME}/chain.pem
-   fi
-
-   # Typically the web apps will be mounted via volume. If it cannot locate those files it throws in test files so the server can prove itself ;)
-   if [[ ! -f ${NGINX_DOCROOT}/testing/index.php ]]; then
-    echo "OK: Install test PHP and HTML pages to /testing/"
-    mkdir -p "${NGINX_DOCROOT}"/testing/
-    mkdir -p "${NGINX_DOCROOT}"/error/
-    rsync -av --ignore-missing-args /tmp/test/* ${NGINX_DOCROOT}/testing/
-    rsync -av --ignore-missing-args /tmp/error/* ${NGINX_DOCROOT}/error/
-   fi
+  local IFS=";"
+  for server_name in ${DOMAINS}; do
+    # Typically these will be mounted via volume, but in case someone
+    # needs a dev context this will set the certs so the server will
+    # have the basics it needs to run
+    if [[ ! -f /etc/letsencrypt/live/${server_name}/privkey.pem ]] || [[ ! -f /etc/letsencrypt/live/${server_name}/fullchain.pem ]]; then
+      echo "OK: Installing development SSL certificates for ${server_name}..."
+      mkdir -p /etc/letsencrypt/live/${server_name}
+      /usr/bin/env bash -c "openssl req -new -newkey rsa:4096 -days 365 -nodes -x509 -subj /C=US/ST=MA/L=Boston/O=ACMECORP/CN=${server_name} -keyout /etc/letsencrypt/live/${server_name}/privkey.pem -out /etc/letsencrypt/live/${server_name}/fullchain.pem"
+      cp /etc/letsencrypt/live/${server_name}/fullchain.pem  /etc/letsencrypt/live/${server_name}/chain.pem
+    fi
+    if [[ ! -f /etc/letsencrypt/live/www.${server_name}/privkey.pem ]] || [[ ! -f /etc/letsencrypt/live/www.${server_name}/fullchain.pem ]]; then
+      echo "OK: Installing development SSL certificates for www.${server_name}..."
+      mkdir -p /etc/letsencrypt/live/www.${server_name}
+      /usr/bin/env bash -c "openssl req -new -newkey rsa:4096 -days 365 -nodes -x509 -subj /C=US/ST=MA/L=Boston/O=ACMECORP/CN=www.${server_name} -keyout /etc/letsencrypt/live/www.${server_name}/privkey.pem -out /etc/letsencrypt/live/www.${server_name}/fullchain.pem"
+      cp /etc/letsencrypt/live/www.${server_name}/fullchain.pem  /etc/letsencrypt/live/www.${server_name}/chain.pem
+    fi
+  done
 }
+
 
 #---------------------------------------------------------------------
 # install bad bot protection
 #---------------------------------------------------------------------
 
 function bots() {
-    # https://github.com/mitchellkrogza/nginx-ultimate-bad-bot-blocker
-    mkdir -p /etc/nginx/sites-available
-    # Change the install direcotry:
-    cd /usr/sbin || exit
-    # Download the config, install and update applications
-    wget https://raw.githubusercontent.com/mitchellkrogza/nginx-ultimate-bad-bot-blocker/master/install-ngxblocker -O install-ngxblocker
-    wget https://raw.githubusercontent.com/mitchellkrogza/nginx-ultimate-bad-bot-blocker/master/setup-ngxblocker -O setup-ngxblocker
-    wget https://raw.githubusercontent.com/mitchellkrogza/nginx-ultimate-bad-bot-blocker/master/update-ngxblocker -O update-ngxblocker
-    # Set permissions
-    chmod +x install-ngxblocker
-    chmod +x setup-ngxblocker
-    chmod +x update-ngxblocker
-    # Run installer and configuration
-    install-ngxblocker -x
-    setup-ngxblocker -x -w ${NGINX_DOCROOT}
-    echo "OK: Clean up variables..."
-    sed -i -e 's|^variables_hash_max_|#variables_hash_max_|g' /etc/nginx/conf.d/botblocker-nginx-settings.conf
+  # https://github.com/mitchellkrogza/nginx-ultimate-bad-bot-blocker
+
+  mkdir -p /etc/nginx/sites-available
+  cd /usr/sbin || exit
+  wget https://raw.githubusercontent.com/mitchellkrogza/nginx-ultimate-bad-bot-blocker/master/install-ngxblocker -O install-ngxblocker
+  wget https://raw.githubusercontent.com/mitchellkrogza/nginx-ultimate-bad-bot-blocker/master/setup-ngxblocker -O setup-ngxblocker
+  wget https://raw.githubusercontent.com/mitchellkrogza/nginx-ultimate-bad-bot-blocker/master/update-ngxblocker -O update-ngxblocker
+  chmod +x install-ngxblocker
+  chmod +x setup-ngxblocker
+  chmod +x update-ngxblocker
+  install-ngxblocker -x
+  setup-ngxblocker -x -w ${NGINX_DOCROOT}
+  echo "OK: Clean up variables..."
+  sed -i -e 's|^variables_hash_max_|#variables_hash_max_|g' /etc/nginx/conf.d/botblocker-nginx-settings.conf
 }
 
 #---------------------------------------------------------------------
@@ -177,27 +190,20 @@ function openssl() {
     fi
   fi
 
-# Add Let's Encrypt CA in case it is needed
+  # Add Let's Encrypt CA in case it is needed
   mkdir -p /etc/ssl/private
   cd /etc/ssl/private || exit
   wget -O - https://letsencrypt.org/certs/isrgrootx1.pem https://letsencrypt.org/certs/lets-encrypt-x1-cross-signed.pem https://letsencrypt.org/certs/letsencryptauthorityx1.pem https://www.identrust.com/certificates/trustid/root-download-x3.html | tee -a ca-certs.pem> /dev/null
 
 }
 
-#---------------------------------------------------------------------
-# start everything up
-#---------------------------------------------------------------------
-
 function run() {
-   environment
-   openssl
-   config
-
-   if [[ ${NGINX_BAD_BOTS} = "true" ]]; then bots; else echo "BOTS was not set"; fi
-   if [[ ${NGINX_DEV_INSTALL} = "true" ]]; then dev; fi
-
-   permissions
-   monit
+  environment
+  openssl
+  config
+  bots
+  if [[ ${NGINX_DEV_INSTALL} = "true" ]]; then dev; fi
+  monit
 }
 
 run
