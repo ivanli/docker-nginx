@@ -1,0 +1,19 @@
+check directory {{SERVER_NAME}}_ssl_cert with path /etc/letsencrypt/live/{{SERVER_NAME}}
+  if changed timestamp 
+  then exec "/usr/bin/env bash -c reload_nginx"
+
+check host {{SERVER_NAME}} with address {{SERVER_NAME}}
+  if failed 
+    host {{SERVER_NAME}} port 80 protocol http
+    and request "/health-check"
+    with timeout 25 seconds
+    for 3 times within 4 cycles
+  then exec "/usr/bin/env bash -c reload_nginx"
+  if failed 
+    host {{SERVER_NAME}} port 443 protocol https
+    request "/health-check"
+    status = 200
+    content = "healthy"
+    with timeout 25 seconds
+    for 3 times within 4 cycles
+  then exec "/usr/bin/env bash -c reload_nginx"

@@ -34,12 +34,19 @@ function monit() {
     echo 'set httpd port 2849 and'
     echo '    use address localhost'
     echo '    allow localhost'
-    echo 'set log syslog'
+    echo 'set log /var/log/monit'
     echo 'set eventqueue'
     echo '    basedir /var/monit'
     echo '    slots 100'
-    echo 'include /etc/monit.d/*'
+    echo 'include /etc/monit.d/*.conf'
   } | tee /etc/monitrc
+
+  local IFS=";"
+  for server_name in ${DOMAINS}; do
+    echo "###   Creating monit config for ${server_name}..."
+    cp /etc/monit.d/check_site.conf.template /etc/monit.d/${server_name}.conf
+    sed -i -e 's|{{SERVER_NAME}}|'"${server_name}"'|g' /etc/monit.d/${server_name}.conf
+  done
 
   chmod 700 /etc/monitrc
   RUN="monit -c /etc/monitrc" && /usr/bin/env bash -c "${RUN}"
