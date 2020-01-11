@@ -5,4 +5,4 @@ do
   echo "... more changes detected, waiting again..."
 done
 
-/usr/bin/env bash -c '/usr/sbin/nginx -s reload'
+/usr/bin/env bash -c /docker-entrypoint.sh /usr/sbin/nginx -s reload
