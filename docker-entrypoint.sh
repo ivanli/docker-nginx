@@ -76,11 +76,11 @@ function config() {
     if [[ ! -d ${NGINX_DOCROOT}/${server_name} ]]; then
       echo "###   DOCROOT for ${server_name} doesn't exist, creating..."
       mkdir -p ${NGINX_DOCROOT}/${server_name}
-      mkdir -p ${NGINX_DOCROOT}/testing/
-      mkdir -p ${NGINX_DOCROOT}/error/
+      mkdir -p ${NGINX_DOCROOT}/${server_name}/testing/
+      mkdir -p ${NGINX_DOCROOT}/${server_name}/error/
 
-      rsync -av --ignore-missing-args /tmp/test/* ${NGINX_DOCROOT}/testing/
-      rsync -av --ignore-missing-args /tmp/error/* ${NGINX_DOCROOT}/error/
+      rsync -av --ignore-missing-args /tmp/test/* ${NGINX_DOCROOT}/${server_name}/testing/
+      rsync -av --ignore-missing-args /tmp/error/* ${NGINX_DOCROOT}/${server_name}/error/
     fi
 
     # Create a new vhost file if it doesn't exist.
@@ -187,13 +187,8 @@ function openssl() {
      PREGEN_HASH=$(md5sum ${PREGEN_DHPARAM_FILE} | cut -d" " -f1)
      CURRENT_HASH=$(md5sum ${DHPARAM_FILE} | cut -d" " -f1)
      if [[ "${PREGEN_HASH}" != "${CURRENT_HASH}" ]]; then
-      # Generate a new dhparam in the background in a low priority and reload nginx when finished (grep removes the progress indicator).
-     (
-         (
-             nice -n +5 openssl dhparam -out ${DHPARAM_FILE} ${DHPARAM_BITS} 2>&1 \
-         ) | grep -vE '^[\.+]+'
-         rm ${GEN_LOCKFILE}
-     ) &disown
+      nice -n +5 openssl dhparam -out ${DHPARAM_FILE} ${DHPARAM_BITS} 2>&1
+      rm ${GEN_LOCKFILE}
     fi
   fi
 
@@ -207,9 +202,9 @@ function openssl() {
 function run() {
   environment
   openssl
+  if [[ ${NGINX_DEV_INSTALL} = "true" ]]; then dev; fi
   config
   bots
-  if [[ ${NGINX_DEV_INSTALL} = "true" ]]; then dev; fi
   monit
 }
 

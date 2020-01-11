@@ -167,7 +167,7 @@ RUN set -x  \
   && mkdir -p ${CACHE_PREFIX} \
   && mkdir -p ${CERTS_PREFIX} \
   && cd ${CERTS_PREFIX} \
-  && openssl dhparam 2048 -out ${CERTS_PREFIX}/dhparam.pem.default \
+  && nice -n +5 openssl dhparam -out ${CERTS_PREFIX}/dhparam.pem.default 2048 \
   && apk add --no-cache --virtual .gettext gettext \
   && mv /usr/bin/envsubst /tmp/ \
   \
@@ -188,16 +188,17 @@ RUN set -x  \
   && rm -rf /usr/src/* \
   && ln -sf /dev/stdout ${LOG_PREFIX}/access.log \
   && ln -sf /dev/stderr ${LOG_PREFIX}/error.log \
-  && ln -sf /dev/stdout ${LOG_PREFIX}/blocked.log
+  && ln -sf /dev/stdout ${LOG_PREFIX}/blocked.log \
+  && apk add --no-cache --update inotify-tools
 
 COPY conf/ /conf
 COPY test/ /tmp/test
 COPY error/ /tmp/error/
 COPY check_wwwdata.sh /usr/bin/check_wwwdata
 COPY check_folder.sh /usr/bin/check_folder
-COPY check_host.sh /usr/bin/check_host
+COPY reload_nginx.sh /usr/bin/reload_nginx
 COPY docker-entrypoint.sh /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint.sh /usr/bin/check_wwwdata /usr/bin/check_folder /usr/bin/check_host
+RUN chmod +x /docker-entrypoint.sh /usr/bin/check_wwwdata /usr/bin/check_folder /usr/bin/reload_nginx
 
 STOPSIGNAL SIGQUIT
 
