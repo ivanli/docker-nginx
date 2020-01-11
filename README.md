@@ -558,7 +558,7 @@ check program cache-size with path /usr/bin/env bash -c "check_folder {{CACHE_PR
       every 20 cycles
       if status != 0 then exec "/usr/bin/env bash -c 'rm -Rf /var/cache/*'"
 ```
- The `check_folder`, `check_host` and `check_wwwdata` scripts provide additional health check utility of make sure that permissions, cache size and host respond correctly. For example, `check_host` will validate that SPA rendering service is properly serving the expected content. This can help detect if there are issues where certain user-agents that can not render SPA are being served the incorrect content. This can wreak havoc with your SEO if a pre-render service is not working as expected. Best to catch it as early as possible so you can mitigate any issues.
+ The `check_folder` and `check_wwwdata` scripts provide additional health check utility of make sure that permissions, cache size and host respond correctly. For example, `check_host` will validate that SPA rendering service is properly serving the expected content. This can help detect if there are issues where certain user-agents that can not render SPA are being served the incorrect content. This can wreak havoc with your SEO if a pre-render service is not working as expected. Best to catch it as early as possible so you can mitigate any issues.
 
 # Content Delivery Network
 If you want to activate CDN for assets like images, you can set your location to redirect those requests to your CDN:
