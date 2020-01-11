@@ -1,5 +1,5 @@
-check directory {{SERVER_NAME}}_ssl_cert with path /etc/letsencrypt/live/{{SERVER_NAME}}
-  if changed timestamp 
+check file {{SERVER_NAME}}_ssl_cert with path /etc/letsencrypt/live/{{SERVER_NAME}}/fullchain.pem
+  if changed checksum 
   then exec "/usr/bin/env bash -c reload_nginx"
 
 check host {{SERVER_NAME}} with address {{SERVER_NAME}}
