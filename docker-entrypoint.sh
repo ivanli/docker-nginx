@@ -34,7 +34,7 @@ function monit() {
     echo 'set httpd port 2849 and'
     echo '    use address localhost'
     echo '    allow localhost'
-    echo 'set log /var/log/monit'
+    echo 'set log /dev/stdout'
     echo 'set eventqueue'
     echo '    basedir /var/monit'
     echo '    slots 100'
