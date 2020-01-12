@@ -3,3 +3,4 @@
 ~*wordpress_test_cookie* 1;
 ~*wordpress_no_cache* 1;
 ~*wordpress_logged_in* 1;
+~*adminer_sid* 1;
