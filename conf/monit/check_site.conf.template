@@ -8,6 +8,7 @@ check host {{SERVER_NAME}} with address {{SERVER_NAME}}
     and request "/health-check"
     with timeout 25 seconds
     for 3 times within 4 cycles
+  then exec "/usr/bin/env bash -c echo 'Health check failed for {{SERVER_NAME}} on http!' >/proc/$(cat /var/run/nginx.pid || echo $$)/fd/1 2>&1" 
   if failed 
     host {{SERVER_NAME}} port 443 protocol https
     request "/health-check"
@@ -15,3 +16,4 @@ check host {{SERVER_NAME}} with address {{SERVER_NAME}}
     content = "healthy"
     with timeout 25 seconds
     for 3 times within 4 cycles
+  then exec "/usr/bin/env bash -c echo 'Health check failed for {{SERVER_NAME}} on https!' >/proc/$(cat /var/run/nginx.pid || echo $$)/fd/1 2>&1" 
