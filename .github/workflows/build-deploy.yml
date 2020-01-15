@@ -3,7 +3,7 @@ name: Docker Image
 on: [push]
 
 env:
-  IMAGE_NAME: 017716228090.dkr.ecr.ap-southeast-2.amazonaws.com/nginx
+  IMAGE_NAME: ${{ secrets.DOCKER_REPOSITORY }} 
 
 jobs:
   build:
