@@ -49,7 +49,7 @@ function monit() {
   done
 
   chmod 700 /etc/monitrc
-  RUN="monit -c /etc/monitrc" && /usr/bin/env bash -c "${RUN}"
+  RUN="monit -c /etc/monitrc && monit reload" && /usr/bin/env bash -c "${RUN}"
 }
 
 #---------------------------------------------------------------------
