@@ -15,4 +15,12 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
+sleep 10
+
+if [ $(pidof nginx | grep -o '[0-9]\+' | wc -l) -lt 3 ]; then
+  echo "... failed to detect 3+ nginx processes, killing nginx to force restart"
+  kill -SIGQUIT $(cat /var/run/nginx.pid || echo 1)
+  exit 1
+fi
+
 echo "... nginx reloaded successfully."
