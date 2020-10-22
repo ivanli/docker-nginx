@@ -1,7 +1,9 @@
 FROM alpine:3.12
-MAINTAINER Thomas Spicer (thomas@openbridge.com)
+LABEL maintainer="ivan@iky.li"
 
 ARG NGINX_VERSION
+RUN test -n "${NGINX_VERSION}"
+
 ENV VAR_PREFIX=/var/run \
     LOG_PREFIX=/var/log/nginx \
     TEMP_PREFIX=/tmp \
@@ -181,8 +183,8 @@ RUN set -x  \
     )" \
   && apk add --no-cache $runDeps \
   && mv /tmp/envsubst /usr/local/bin/ \
-  && cd /etc/pki/tls/ \
-  && nice -n +5 openssl dhparam -out /etc/pki/tls/dhparam.pem.default 2048 \
+  && cd ${CERTS_PREFIX} \
+  && nice -n +5 openssl dhparam -out ${CERTS_PREFIX}/dhparam.pem.default 2048 \
   && apk add --no-cache $runDeps \
   && apk del .build-deps \
   && cd /tmp/naxsi \
@@ -198,9 +200,10 @@ COPY test/ /tmp/test
 COPY error/ /tmp/error/
 COPY check_wwwdata.sh /usr/bin/check_wwwdata
 COPY check_folder.sh /usr/bin/check_folder
-COPY check_host.sh /usr/bin/check_host
+#COPY check_host.sh /usr/bin/check_host
 COPY docker-entrypoint.sh /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint.sh /usr/bin/check_wwwdata /usr/bin/check_folder /usr/bin/check_host
+#RUN chmod +x /docker-entrypoint.sh /usr/bin/check_wwwdata /usr/bin/check_folder /usr/bin/check_host
+RUN chmod +x /docker-entrypoint.sh /usr/bin/check_wwwdata /usr/bin/check_folder
 
 STOPSIGNAL SIGQUIT
 

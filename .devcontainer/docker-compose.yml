@@ -1,0 +1,33 @@
+version: '3.1'
+services:
+  nginx:
+    build: 
+      context: ..
+      args:
+        - NGINX_VERSION=1.19.2
+    env_file:
+      - ../env/php.env
+    depends_on:
+      - redis
+      - php-fpm
+    ports:
+      - 80:80
+      - 443:443
+    tty: true
+    tmpfs: /var/cache
+    volumes:
+      - ../conf/php/nginx:/conf/nginx
+      - ../conf/php/monit:/conf/monit
+      - ../data/web:/app
+      - ../data/ssl:/etc/letsencrypt/live
+    ulimits:
+      nproc: 65535
+      nofile:
+          soft: 49999
+          hard: 99999
+  php-fpm:
+    image: bitnami/php-fpm
+    volumes:
+      - ../data/web:/app
+  redis:
+    image: redis:alpine

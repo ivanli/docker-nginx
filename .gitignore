@@ -1,3 +1,5 @@
+data
+
 # Application specific files
 .sass-cache
 *.log
